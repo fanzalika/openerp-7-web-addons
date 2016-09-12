@@ -1,12 +1,16 @@
 openerp.web_printscreen_zb = function(instance, m) {
-    
     var _t = instance.web._t,
     QWeb = instance.web.qweb;
-    
     instance.web.ListView.include({
         load_list: function () {
             var self = this;
             this._super.apply(this, arguments);
+
+            if (!this.$printscreen) {
+                this.$printscreen = $(QWeb.render("ListView.ExportLinks", {'widget': self}));
+                this.$pager.parent().after(this.$printscreen);
+            }
+
             var links = document.getElementsByClassName("oe_list_button_import_excel");
             var links_pdf = document.getElementsByClassName("oe_list_button_import_pdf");
             if (links && links[0]){
@@ -20,6 +24,7 @@ openerp.web_printscreen_zb = function(instance, m) {
                 };
             }
         },
+
         export_to_excel: function(export_type) {
             var self = this
             var export_type = export_type
@@ -111,22 +116,35 @@ openerp.web_printscreen_zb = function(instance, m) {
              }
              else{
                 console.log(view)
-                new instance.web.Model("res.users").get_func("read")(this.session.uid, ["company_id"]).then(function(res) {
-                    new instance.web.Model("res.company").get_func("read")(res['company_id'][0], ["name"]).then(function(result) {
-                        view.session.get_file({
-                             url: '/web/export/zb_pdf_export',
-                             data: {data: JSON.stringify({
-                                    uid: view.session.uid,
-                                    model : view.model,
-                                    headers : header_name_list,
-                                    rows : export_data,
-                                    company_name: result['name']
-                             })},
-                             complete: $.unblockUI
-                         });
+                new instance.web.Model("res.users").get_func("get_printscreen_report_context")(this.session.uid).then(function(res) {
+                    view.session.get_file({
+                         url: '/web/export/zb_pdf_export',
+                         data: {data: JSON.stringify({
+                                uid: view.session.uid,
+                                model : view.model,
+                                headers : header_name_list,
+                                rows : export_data,
+                                company_name: res['company_name'],
+                                company_logo: res['company_logo'],
+                                current_date: res['current_date'],
+                         })},
+                         complete: $.unblockUI
                     });
                 });
              }
+        },
+    });
+
+    instance.web.ViewManager.include({
+        switch_mode: function(view_type, no_store, view_options) {
+            export_div = this.$el.find('div.oe_web_printscreen');
+            if (view_type != 'list' /** && view_type != 'tree' */ ) {
+                export_div.css("display", "none")
+            } else {
+                export_div.css("display", "")
+            }
+
+            return this._super.apply(this, arguments);
         },
     });
 };
